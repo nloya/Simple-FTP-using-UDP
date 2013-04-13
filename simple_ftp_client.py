@@ -41,7 +41,7 @@ class PktSentHandler(threading.Thread):
 			while (datetime.datetime.now() - self.datetimesent).seconds < 5 and acked < self.seq_no:
 				pass # infinite loop			
 			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
-				self.sock.sendto(self.segment, (host,port))
+				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
 				self.datetimesent = datetime.datetime.now()
 			else: # that means packet was acknowledged
 				break
@@ -78,7 +78,7 @@ def main():
 		'''
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
-	print "End of Program"
+	print("End of Program")
 
 def rdt_send(f):	
 	global window_size
@@ -117,8 +117,8 @@ def sendtoserver(msg):
 	segment += "{0:016b}".format(checksum)
 	segment += '0101010101010101'
 	segment += msg
-	#print segment
-	s.sendto(segment, (host,port))
+	print (segment)
+	s.sendto(bytes(segment, 'UTF-8'), (host,port))
 	p = PktSentHandler(s, datetime.datetime.now(), transmitted, segment)
 	p.start()
 
@@ -132,4 +132,4 @@ if len(sys.argv) == 6:
 	buffer = window_size*[None] # initialize buffer with size as window_size
 	main()
 else:
-	print "Provide correct number of arguments. There should be 5 arguments, you have given %s." %len(sys.argv)	
+	print ("Provide correct number of arguments. There should be 5 arguments, you have given %s." %len(sys.argv))	
