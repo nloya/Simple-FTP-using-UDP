@@ -91,19 +91,23 @@ def main():
 	global mss
 	print("My IP: %s" %socket.gethostbyname(socket.gethostname()))
 	s.connect((host,port))
+	
+	start_time = datetime.datetime.now()
 	#t = myThread(s)
 	#t.start()
 	try:
 		f = open(filepath, 'r')
 		msg = ""
-		rdt_send(f)		
+		rdt_send(f)	
+		
+		while threading.active_count() != 2:
+			pass
+		print("End of Program")
+		end_time = datetime.datetime.now()
+		print("Delay: %s seconds" %(end_time-start_time).seconds)
+	#s.close()
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
-	
-	while threading.active_count() != 2:
-		pass
-	print("End of Program")
-	#s.close()
 
 def rdt_send(f):	
 	global window_size
