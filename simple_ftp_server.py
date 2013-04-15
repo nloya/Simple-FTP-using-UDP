@@ -1,4 +1,5 @@
 """
+Go-BACK-N
 Simple_ftp_server port# file-name p
 """
 import sys
@@ -59,10 +60,10 @@ def main():
 		# if the packets arrive out of order no need to do anything
 		if seq_no - received == 1:
 			if (r > p) and (checksum_incoming_pkt == checksum_value) and (hdr == '0101010101010101'):
-				print("Packet received, sequence number = %s" %str(seq_no))
-				f = open(filename, 'ab')				
+				#print("Packet received, sequence number = %s" %str(seq_no))
+				f = open(filename, 'a')				
 				received += 1
-				f.write(bytes(segment, 'UTF-8'))			
+				f.write(segment)			
 				'''this would work as this is the value that is being sent anyways. it should be received field value. data[0:32]'''
 				segment = data[0:32]
 				segment += "{0:016b}".format(0)
@@ -88,7 +89,7 @@ if len(sys.argv) == 4:
 		print("Value of port should be 7735")
 	else:
 		print("Value of p should be between 0 and 1, excluding 0 and 1.")
-	print ("End of Program")
+	print ("End of Program %s" %port)
 else:
 	print("There should be 3 command-line arguments only.")
 
