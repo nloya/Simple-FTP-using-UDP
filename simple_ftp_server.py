@@ -62,10 +62,11 @@ def main():
 	while True:		
 		data, address = skt.recvfrom(1088)		
 		data = data.decode('UTF-8')
-		if data[0:3] == "END %s" %port:
+		if data[0:3] == "END":
 			skt.sendto(bytes("END", "UTF-8"), address)
 			skt.close()
 			copydatatofile()
+			break
 		else:
 			seq_no = int(data[0:32], 2)
 			checksum_incoming_pkt = int(data[32:48],2)
@@ -108,7 +109,7 @@ if len(sys.argv) == 4:
 		print("Value of port should be 7735")
 	else:
 		print("Value of p should be between 0 and 1, excluding 0 and 1.")
-	print ("End of Program")
+	print ("End of Program %s" %port)
 else:
 	print("There should be 3 command-line arguments only.")
 

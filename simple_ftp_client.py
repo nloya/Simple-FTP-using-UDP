@@ -56,7 +56,7 @@ class myThread(threading.Thread):
 		while True:
 			data,addr = self.sock.recvfrom(64)
 			data = data.decode('UTF-8')
-			if data[0:3] == "END %s" %port:
+			if data[0:3] == "END":
 				self.sock.close()
 				close_conn = True
 				break
@@ -128,7 +128,7 @@ def main():
 		while close_conn != True:
 			pass
 		end_time = datetime.datetime.now()
-		print("End of Program")
+		print("End of Program %s" %port)
 		print("Time for data transfer: %s seconds" %(end_time-start_time).seconds)
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
