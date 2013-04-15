@@ -1,3 +1,7 @@
+"""
+Simple_ftp_client server-host-name server-port# file-name N MSS 
+"""
+
 import sys
 import threading
 import datetime
@@ -7,6 +11,7 @@ import time
 transmitted = -1
 acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+timeout = 2
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -51,20 +56,22 @@ class myThread(threading.Thread):
 			'''
 			acked = seq_no # update the acked field
 
-class PktSentHandler(threading.Thread):
-	def __init__(self, sock, datetimesent, seq_no, segment):
+class PktSentHandler():
+	def __init__(self, datetimesent, seq_no, segment):
 		threading.Thread.__init__(self)
-		self.sock = sock
+		#self.sock = sock
 		self.datetimesent = datetimesent
 		self.seq_no = seq_no
 		self.segment = segment
 	
 	def run(self):
+		print("YOU CANT BE HERE")
 		global host
 		global port
+		global timeout
 		while True:
 			''' 5 being the timeout value. Wait for timeout and resend'''
-			while (datetime.datetime.now() - self.datetimesent).seconds < 2 and acked < self.seq_no:
+			while (datetime.datetime.now() - self.datetimesent).seconds < timeout and acked < self.seq_no:
 				pass # loop	till timeout occurs or packet is acknowledged		
 			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
 				print("Timeout, sequence number = %s" %self.seq_no)
@@ -101,6 +108,11 @@ def main():
 def rdt_send(f):	
 	global window_size
 	global mss
+	global timeout
+	global s
+	global host
+	global port
+	
 	msg = ""
 	flag = True
 	c = f.read(1)
@@ -108,7 +120,13 @@ def rdt_send(f):
 		msg += c
 		if(len(msg)==mss):
 			while transmitted - acked == window_size:
-				pass # loop till window_size is full
+				#pass # loop till window_size is full				
+				if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:
+					print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+					tmpacked = acked # So that even if the other thread changes no effect happens in this case
+					for i in range(0,window_size):						
+						s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
+						buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()				
 			sendtoserver(msg)
 			if flag:
 				flag = False
@@ -118,7 +136,22 @@ def rdt_send(f):
 		c = f.read(1)
 		
 	if(len(msg)!=0): # if the file is read completely and the last chunk of msg is not sent as it is not 1024 then send that last chunk of msg
+		while transmitted - acked == window_size:			
+			if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:				
+				print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+				tmpacked = acked # So that even if the other thread changes no effect happens in this case
+				for i in range(0,window_size):					
+					s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
+					buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()
 		sendtoserver(msg)
+	
+	while acked != transmitted:
+		if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:
+			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+			tmpacked = acked # So that even if the other thread changes no effect happens in this case
+			for i in range(0,window_size):			
+				s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
+				buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()
 
 def sendtoserver(msg):
 	global s
@@ -129,7 +162,7 @@ def sendtoserver(msg):
 	
 	segment = ""
 	transmitted += 1
-	#buffer[transmitted % window_size] = msg
+	
 	checksum = calculate_checksum(msg)
 	
 	segment += "{0:032b}".format(transmitted)
@@ -138,8 +171,11 @@ def sendtoserver(msg):
 	segment += msg
 	
 	s.sendto(bytes(segment, 'UTF-8'), (host,port))
-	p = PktSentHandler(s, datetime.datetime.now(), transmitted, segment)
-	p.start()
+	
+	p = PktSentHandler(datetime.datetime.now(), transmitted, segment) # transmitted here is the seq_no
+	buffer[transmitted % window_size] = p
+	
+	#p.start()
 	#p.join()
 	#p.exit()
 
@@ -150,7 +186,7 @@ if len(sys.argv) == 6:
 	filepath = sys.argv[3]
 	window_size = int(sys.argv[4])
 	mss = int(sys.argv[5])
-	#buffer = window_size*[None] # initialize buffer with size as window_size
+	buffer = window_size*[None] # initialize buffer with size as window_size
 	if mss < 0 or window_size <= 0 or port != 7735:
 		print("One of mss, window_size or port value is incorrect.")
 	else:

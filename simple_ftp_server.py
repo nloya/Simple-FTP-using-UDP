@@ -1,3 +1,6 @@
+"""
+Simple_ftp_server port# file-name p
+"""
 import sys
 import threading
 import datetime
