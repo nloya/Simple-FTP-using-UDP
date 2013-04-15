@@ -12,6 +12,8 @@ transmitted = -1
 acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 timeout = 2
+pktlist = []
+lock = threading.Lock()
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -43,41 +45,47 @@ class myThread(threading.Thread):
 		global transmitted
 		global acked
 		global s
+		global lock
 		#h = socket.gethostbyname(socket.gethostname())
 		#s.bind((h, 50001))
 		while True:
 			data,addr = self.sock.recvfrom(64)
 			seq_no = int(data[0:32], 2)			
 			hdr = data[32:48]
-			ackpkt = data[48:64]	
+			ackpkt = data[48:64]
+			lock.acquire()
+			if seq_no in pktlist:
+				#print("Seq_No: %s" %seq_no)
+				pktlist.remove(seq_no)
+			lock.release()
 			'''
 			if ackpt != "1010101010101010":
 				print("Error in the acknowledge packet")
 			'''
-			acked = seq_no # update the acked field
+			#acked = seq_no # update the acked field
 
-class PktSentHandler():
-	def __init__(self, datetimesent, seq_no, segment):
+class PktSentHandler(threading.Thread):
+	def __init__(self, sock, datetimesent, seq_no, segment):
 		threading.Thread.__init__(self)
-		#self.sock = sock
+		self.sock = sock
 		self.datetimesent = datetimesent
 		self.seq_no = seq_no
 		self.segment = segment
 	
-	def run(self):
-		print("YOU CANT BE HERE")
+	def run(self):		
 		global host
 		global port
 		global timeout
-		while True:
-			''' 5 being the timeout value. Wait for timeout and resend'''
-			while (datetime.datetime.now() - self.datetimesent).seconds < timeout and acked < self.seq_no:
+		global pktlist
+		global lock
+		while True:		
+			while (datetime.datetime.now() - self.datetimesent).seconds < timeout and self.seq_no in pktlist:
 				pass # loop	till timeout occurs or packet is acknowledged		
-			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
+			if self.seq_no in pktlist: # this means that the while loop was broken because timeout occured, resend packet
 				print("Timeout, sequence number = %s" %self.seq_no)
 				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
 				self.datetimesent = datetime.datetime.now()
-			else: # that means packet was acknowledged
+			else: # that means packet was acknowledged				
 				break
 
 			
@@ -119,15 +127,11 @@ def rdt_send(f):
 	while c != '': # EOF
 		msg += c
 		if(len(msg)==mss):
-			while transmitted - acked == window_size:
-				#pass # loop till window_size is full				
-				if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:
-					print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
-					tmpacked = acked # So that even if the other thread changes no effect happens in this case
-					for i in range(0,window_size):						
-						s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
-						buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()				
+			while len(pktlist) == window_size:
+				pass # loop till window_size is full					
+			lock.acquire()
 			sendtoserver(msg)
+			lock.release()
 			if flag:
 				flag = False
 				t = myThread(s)
@@ -136,22 +140,15 @@ def rdt_send(f):
 		c = f.read(1)
 		
 	if(len(msg)!=0): # if the file is read completely and the last chunk of msg is not sent as it is not 1024 then send that last chunk of msg
-		while transmitted - acked == window_size:			
-			if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:				
-				print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
-				tmpacked = acked # So that even if the other thread changes no effect happens in this case
-				for i in range(0,window_size):					
-					s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
-					buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()
+		while len(pktlist) == window_size:
+			pass # loop till window_size is full					
+		lock.acquire()
 		sendtoserver(msg)
+		lock.release()		
 	
-	while acked != transmitted:
-		if (datetime.datetime.now() - buffer[(acked+1)%window_size].datetimesent).seconds > timeout:
-			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
-			tmpacked = acked # So that even if the other thread changes no effect happens in this case
-			for i in range(0,window_size):			
-				s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
-				buffer[(tmpacked+1+i)%window_size].datetimesent = datetime.datetime.now()
+	# TO check whether after sending last packet, are there any more packets which have not been acknowledged yet
+	while len(pktlist) != 0:
+		pass
 
 def sendtoserver(msg):
 	global s
@@ -159,6 +156,8 @@ def sendtoserver(msg):
 	global transmitted
 	global host
 	global port
+	global pktdict
+	global lock
 	
 	segment = ""
 	transmitted += 1
@@ -171,11 +170,12 @@ def sendtoserver(msg):
 	segment += msg
 	
 	s.sendto(bytes(segment, 'UTF-8'), (host,port))
-	
-	p = PktSentHandler(datetime.datetime.now(), transmitted, segment) # transmitted here is the seq_no
-	buffer[transmitted % window_size] = p
-	
-	#p.start()
+	#lock.acquire()
+	pktlist.append(transmitted) # transmitted here is the seq_no
+	#lock.release()
+	p = PktSentHandler(s, datetime.datetime.now(), transmitted, segment) # transmitted here is the seq_no
+	p.start()
+	#buffer[transmitted % window_size] = p
 	#p.join()
 	#p.exit()
 

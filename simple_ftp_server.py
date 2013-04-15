@@ -7,6 +7,8 @@ import datetime
 import socket
 import random
 
+pktdict = {}
+
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
   pos = len(data)
@@ -33,6 +35,7 @@ def main():
 	global received
 	global p
 	global port
+	global pktdict
 	skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	host = socket.gethostbyname(socket.gethostname())
 	
@@ -57,8 +60,9 @@ def main():
 		
 		r = random.random()
 		# if the packets arrive out of order no need to do anything
-		if seq_no - received == 1:
+		if seq_no not in pktdict:
 			if (r > p) and (checksum_incoming_pkt == checksum_value) and (hdr == '0101010101010101'):
+				pktdict[seq_no] = segment
 				print("Packet received, sequence number = %s" %str(seq_no))
 				f = open(filename, 'ab')				
 				received += 1
