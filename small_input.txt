@@ -1,0 +1,27 @@
+There are some terminologies in the above description that need clarification:
+PCB is the acronym for Process Control Block. A "process" is a program that is being executed by the computer
+It is important to know the difference between a "process" and a "program". A program consists of computer instructions, but a process consists of something more than just computer instructions in a program: it also include the current state
+
+The process state consists of all the information other than the program itself that is necessary to continue running the program if the program is halted at a particular point.
+
+In other words: suppose you pull the plug on the computer that is running a program (say some video game). The process state is all the information that is necessary to allow you to restart the computer and continue with that program from the moment when you pull the plug.
+
+The process state is also known as the context of the process.
+
+The process state consists of the following information in the CPU:
+
+Content of all the (general purpose) registers
+ASDThere are some terminologies in the above description that need clarification:
+PCB is the acronym for Process Control Block. A "process" is a program that is being executed by the computer
+It is important to know the difference between a "process" and a "program". A program consists of computer instructions, but a process consists of something more than just computer instructions in a program: it also include the current state
+
+The process state consists of all the information other than the program itself that is necessary to continue running the program if the program is halted at a particular point.
+
+In other words: suppose you pull the plug on the computer that is running a program (say some video game). The process state is all the information that is necessary to allow you to restart the computer and continue with that program from the moment when you pull the plug.
+
+The process state is also known as the context of the process.
+
+The process state consists of the following information in the CPU:
+
+Content of all the (general purpose) registers
+ASDThere are some terminologie

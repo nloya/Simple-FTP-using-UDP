@@ -14,6 +14,9 @@ s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 timeout = 2
 pktlist = []
 lock = threading.Lock()
+start_time = ""
+end_time = ""
+close_conn = False
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -46,23 +49,31 @@ class myThread(threading.Thread):
 		global acked
 		global s
 		global lock
+		global close_conn
+		global port
 		#h = socket.gethostbyname(socket.gethostname())
 		#s.bind((h, 50001))
 		while True:
 			data,addr = self.sock.recvfrom(64)
-			seq_no = int(data[0:32], 2)			
-			hdr = data[32:48]
-			ackpkt = data[48:64]
-			lock.acquire()
-			if seq_no in pktlist:
-				#print("Seq_No: %s" %seq_no)
-				pktlist.remove(seq_no)
-			lock.release()
-			'''
-			if ackpt != "1010101010101010":
-				print("Error in the acknowledge packet")
-			'''
-			#acked = seq_no # update the acked field
+			data = data.decode('UTF-8')
+			if data[0:3] == "END %s" %port:
+				self.sock.close()
+				close_conn = True
+				break
+			else:
+				seq_no = int(data[0:32], 2)			
+				hdr = data[32:48]
+				ackpkt = data[48:64]
+				lock.acquire()
+				if seq_no in pktlist:
+					#print("Seq_No: %s" %seq_no)
+					pktlist.remove(seq_no)
+				lock.release()
+				'''
+				if ackpt != "1010101010101010":
+					print("Error in the acknowledge packet")
+				'''
+				#acked = seq_no # update the acked field
 
 class PktSentHandler(threading.Thread):
 	def __init__(self, sock, datetimesent, seq_no, segment):
@@ -97,6 +108,11 @@ def main():
 	global host
 	global port
 	global mss
+	global start_time
+	global end_time
+	global close_conn
+	
+	start_time = datetime.datetime.now()
 	print("My IP: %s" %socket.gethostbyname(socket.gethostname()))
 	s.connect((host,port))
 	#t = myThread(s)
@@ -104,13 +120,18 @@ def main():
 	try:
 		f = open(filepath, 'r')
 		msg = ""
-		rdt_send(f)		
+		rdt_send(f)
+	
+		while threading.active_count() != 2:
+			pass
+		s.sendto(bytes("END","UTF-8"), (host,port))
+		while close_conn != True:
+			pass
+		end_time = datetime.datetime.now()
+		print("End of Program")
+		print("Time for data transfer: %s seconds" %(end_time-start_time).seconds)
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
-	
-	while threading.active_count() != 2:
-		pass
-	print("End of Program")
 	#s.close()
 
 def rdt_send(f):	
@@ -123,6 +144,7 @@ def rdt_send(f):
 	
 	msg = ""
 	flag = True
+	
 	c = f.read(1)
 	while c != '': # EOF
 		msg += c
