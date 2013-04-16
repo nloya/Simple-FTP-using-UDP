@@ -36,7 +36,7 @@ def main():
 	global port
 	skt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	host = socket.gethostbyname(socket.gethostname())
-	
+	#host = '10.139.65.215'
 	print("Host: %s" %host)
 	skt.bind((host, port))
 	#skt.listen(5)
@@ -83,13 +83,15 @@ if len(sys.argv) == 4:
 	port = int(sys.argv[1])
 	filename = sys.argv[2]
 	p = float(sys.argv[3])
-	if p>0 and p<1 and port==7735:
+	if p>0 and p<1:
 		main()
-	elif port!=7735:
-		print("Value of port should be 7735")
 	else:
 		print("Value of p should be between 0 and 1, excluding 0 and 1.")
 	print ("End of Program %s" %port)
 else:
 	print("There should be 3 command-line arguments only.")
 
+# If want to have a restriction about port
+#elif port!=7735:
+#	print("Value of port should be 7735")
+	

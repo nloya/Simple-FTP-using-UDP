@@ -12,7 +12,7 @@ import time
 transmitted = -1
 acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-timeout = 0.5
+timeout = 0.05
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -75,7 +75,7 @@ class PktSentHandler():
 			while (time.time() - self.datetimesent) < timeout and acked < self.seq_no:
 				pass # loop	till timeout occurs or packet is acknowledged		
 			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
-				print("Timeout, sequence number = %s" %self.seq_no)
+				print("Timeout1, sequence number = %s" %self.seq_no)
 				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
 				self.datetimesent = time.time()
 			else: # that means packet was acknowledged
@@ -127,7 +127,7 @@ def rdt_send(f):
 			while transmitted - acked == window_size:
 				#pass # loop till window_size is full				
 				if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:
-					print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+					print("Timeout2, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
 					tmpacked = acked # So that even if the other thread changes no effect happens in this case
 					for i in range(0,window_size):						
 						s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
@@ -143,7 +143,7 @@ def rdt_send(f):
 	if(len(msg)!=0): # if the file is read completely and the last chunk of msg is not sent as it is not 1024 then send that last chunk of msg
 		while transmitted - acked == window_size:			
 			if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:				
-				print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+				print("Timeout3, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
 				tmpacked = acked # So that even if the other thread changes no effect happens in this case
 				for i in range(0,window_size):					
 					s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
@@ -152,7 +152,7 @@ def rdt_send(f):
 	
 	while acked != transmitted:
 		if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:
-			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+			print("Timeout4, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
 			tmpacked = acked # So that even if the other thread changes no effect happens in this case
 			for i in range(0,window_size):			
 				s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
@@ -192,8 +192,8 @@ if len(sys.argv) == 6:
 	window_size = int(sys.argv[4])
 	mss = int(sys.argv[5])
 	buffer = window_size*[None] # initialize buffer with size as window_size
-	if mss < 0 or window_size <= 0 or port != 7735:
-		print("One of mss, window_size or port value is incorrect.")
+	if mss < 0 or window_size <= 0:
+		print("One of mss, window_size is incorrect.")
 	else:
 		main()
 else:
