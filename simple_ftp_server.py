@@ -76,6 +76,11 @@ def main():
 				print("Checksum for sequence number: %s is incorrect" %str(seq_no))
 			else:
 				print("Value should be: 0101010101010101 but found something else")
+		elif seq_no - received == 0:
+			segment = data[0:32]
+			segment += "{0:016b}".format(0)
+			segment += "1010101010101010"							
+			skt.sendto(bytes(segment, "UTF-8"), address)
 		
 
 if len(sys.argv) == 4:
