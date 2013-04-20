@@ -74,13 +74,13 @@ def main():
 			segment = data[64:]		
 			checksum_value = calculate_checksum(segment)
 			#print("Checksum for %s is: %s (%s)" %(str(seq_no), str(checksum_value), data[64:]))					
-			
+			#print(seq_no)
 			r = random.random()
 			# if the packets arrive out of order no need to do anything
 			if seq_no not in pktdict:
 				if (r > p) and (checksum_incoming_pkt == checksum_value) and (hdr == '0101010101010101'):
 					pktdict[seq_no] = segment
-					print("Packet received, sequence number = %s" %str(seq_no))
+					#print("Packet received, sequence number = %s" %str(seq_no))
 					#f = open(filename, 'a')				
 					received += 1
 					#f.write(segment)		
@@ -96,6 +96,11 @@ def main():
 					print("Checksum for sequence number: %s is incorrect" %str(seq_no))
 				else:
 					print("Value should be: 0101010101010101 but found something else")
+			else:				
+				segment = data[0:32]
+				segment += "{0:016b}".format(0)
+				segment += "1010101010101010"				
+				skt.sendto(bytes(segment, "UTF-8"), address)
 		
 
 if len(sys.argv) == 4:
@@ -103,10 +108,8 @@ if len(sys.argv) == 4:
 	port = int(sys.argv[1])
 	filename = sys.argv[2]
 	p = float(sys.argv[3])
-	if p>0 and p<1 and port==7735:
+	if p>0 and p<1:
 		main()
-	elif port!=7735:
-		print("Value of port should be 7735")
 	else:
 		print("Value of p should be between 0 and 1, excluding 0 and 1.")
 	print ("End of Program %s" %port)

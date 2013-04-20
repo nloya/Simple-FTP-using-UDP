@@ -11,7 +11,7 @@ import time
 transmitted = -1
 acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-timeout = 2
+timeout = 0.3
 pktlist = []
 lock = threading.Lock()
 start_time = ""
@@ -90,12 +90,12 @@ class PktSentHandler(threading.Thread):
 		global pktlist
 		global lock
 		while True:		
-			while (datetime.datetime.now() - self.datetimesent).seconds < timeout and self.seq_no in pktlist:
+			while (time.time() - self.datetimesent) < timeout and self.seq_no in pktlist:
 				pass # loop	till timeout occurs or packet is acknowledged		
 			if self.seq_no in pktlist: # this means that the while loop was broken because timeout occured, resend packet
 				print("Timeout, sequence number = %s" %self.seq_no)
 				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
-				self.datetimesent = datetime.datetime.now()
+				self.datetimesent = time.time()
 			else: # that means packet was acknowledged				
 				break
 
@@ -112,7 +112,7 @@ def main():
 	global end_time
 	global close_conn
 	
-	start_time = datetime.datetime.now()
+	start_time = time.time()
 	print("My IP: %s" %socket.gethostbyname(socket.gethostname()))
 	s.connect((host,port))
 	#t = myThread(s)
@@ -127,9 +127,9 @@ def main():
 		s.sendto(bytes("END","UTF-8"), (host,port))
 		while close_conn != True:
 			pass
-		end_time = datetime.datetime.now()
+		end_time = time.time()
 		print("End of Program %s" %port)
-		print("Time for data transfer: %s seconds" %(end_time-start_time).seconds)
+		print("Time for data transfer: %s seconds" %(end_time-start_time))
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
 	#s.close()
@@ -195,7 +195,7 @@ def sendtoserver(msg):
 	#lock.acquire()
 	pktlist.append(transmitted) # transmitted here is the seq_no
 	#lock.release()
-	p = PktSentHandler(s, datetime.datetime.now(), transmitted, segment) # transmitted here is the seq_no
+	p = PktSentHandler(s, time.time(), transmitted, segment) # transmitted here is the seq_no
 	p.start()
 	#buffer[transmitted % window_size] = p
 	#p.join()
@@ -209,8 +209,8 @@ if len(sys.argv) == 6:
 	window_size = int(sys.argv[4])
 	mss = int(sys.argv[5])
 	buffer = window_size*[None] # initialize buffer with size as window_size
-	if mss < 0 or window_size <= 0 or port != 7735:
-		print("One of mss, window_size or port value is incorrect.")
+	if mss < 0 or window_size <= 0:
+		print("One of mss, window_size is incorrect.")
 	else:
 		main()
 else:
