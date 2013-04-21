@@ -1,4 +1,5 @@
 """
+Go-BACK-N
 Simple_ftp_client server-host-name server-port# file-name N MSS 
 """
 
@@ -13,10 +14,8 @@ acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 timeout = 0.3
 pktlist = []
+segmentdict = {}
 lock = threading.Lock()
-start_time = ""
-end_time = ""
-close_conn = False
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -49,56 +48,52 @@ class myThread(threading.Thread):
 		global acked
 		global s
 		global lock
-		global close_conn
-		global port
 		#h = socket.gethostbyname(socket.gethostname())
 		#s.bind((h, 50001))
+		#lock = threading.Lock()
 		while True:
 			data,addr = self.sock.recvfrom(64)
-			data = data.decode('UTF-8')
-			if data[0:3] == "END":
-				self.sock.close()
-				close_conn = True
-				break
-			else:
-				seq_no = int(data[0:32], 2)			
-				hdr = data[32:48]
-				ackpkt = data[48:64]
-				lock.acquire()
-				if seq_no in pktlist:
-					#print("Seq_No: %s" %seq_no)
-					pktlist.remove(seq_no)
-				lock.release()
-				'''
-				if ackpt != "1010101010101010":
-					print("Error in the acknowledge packet")
-				'''
-				#acked = seq_no # update the acked field
+			lock.acquire()
+			seq_no = int(data[0:32], 2)			
+			hdr = data[32:48]
+			ackpkt = data[48:64]	
+			'''
+			if ackpt != "1010101010101010":
+				print("Error in the acknowledge packet")
+			'''
+			acked = seq_no # update the acked field
+			
+			for i in range(0, len(pktlist)):
+				if pktlist[i].seq_no == seq_no:
+					pktlist.remove(pktlist[i])
+					break
+			
+			lock.release()
 
-class PktSentHandler(threading.Thread):
-	def __init__(self, sock, datetimesent, seq_no, segment):
+class PktSentHandler():
+	def __init__(self, time, seq_no, segment):
 		threading.Thread.__init__(self)
-		self.sock = sock
-		self.datetimesent = datetimesent
+		#self.sock = sock
+		self.time = time
 		self.seq_no = seq_no
 		self.segment = segment
-	
-	def run(self):		
+	"""
+	def run(self):
+		print("YOU CANT BE HERE")
 		global host
 		global port
 		global timeout
-		global pktlist
-		global lock
-		while True:		
-			while (time.time() - self.datetimesent) < timeout and self.seq_no in pktlist:
+		while True:
+			''' 5 being the timeout value. Wait for timeout and resend'''
+			while (time.time() - self.datetimesent) < timeout and acked < self.seq_no:
 				pass # loop	till timeout occurs or packet is acknowledged		
-			if self.seq_no in pktlist: # this means that the while loop was broken because timeout occured, resend packet
-				print("Timeout, sequence number = %s" %self.seq_no)
+			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
+				print("Timeout1, sequence number = %s" %self.seq_no)
 				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
 				self.datetimesent = time.time()
-			else: # that means packet was acknowledged				
+			else: # that means packet was acknowledged
 				break
-
+	"""
 			
 def main():
 	
@@ -108,31 +103,25 @@ def main():
 	global host
 	global port
 	global mss
-	global start_time
-	global end_time
-	global close_conn
-	
-	start_time = time.time()
 	print("My IP: %s" %socket.gethostbyname(socket.gethostname()))
 	s.connect((host,port))
+	
+	start_time = time.time()
 	#t = myThread(s)
 	#t.start()
 	try:
 		f = open(filepath, 'r')
 		msg = ""
-		rdt_send(f)
-	
+		rdt_send(f)	
+		
 		while threading.active_count() != 2:
 			pass
-		s.sendto(bytes("END","UTF-8"), (host,port))
-		while close_conn != True:
-			pass
-		end_time = time.time()
 		print("End of Program %s" %port)
-		print("Time for data transfer: %s seconds" %(end_time-start_time))
+		end_time = time.time()
+		print("Delay: %s seconds" %(end_time-start_time))
+	#s.close()
 	except IOError as e:
 		print("File Not Found or you didn't enter path in quotes or the ordering of arguments supplied is incorrect.")
-	#s.close()
 
 def rdt_send(f):	
 	global window_size
@@ -141,36 +130,61 @@ def rdt_send(f):
 	global s
 	global host
 	global port
-	
+	lock = threading.Lock() 
 	msg = ""
 	flag = True
-	
 	c = f.read(1)
 	while c != '': # EOF
 		msg += c
 		if(len(msg)==mss):
 			while len(pktlist) == window_size:
-				pass # loop till window_size is full					
-			lock.acquire()
+				checkfortimeout()				
+				#lock.release()
 			sendtoserver(msg)
-			lock.release()
 			if flag:
 				flag = False
 				t = myThread(s)
 				t.start()
 			msg = ""
 		c = f.read(1)
-		
+	#print("LAST SEGMENT STARTS")	
 	if(len(msg)!=0): # if the file is read completely and the last chunk of msg is not sent as it is not 1024 then send that last chunk of msg
-		while len(pktlist) == window_size:
-			pass # loop till window_size is full					
-		lock.acquire()
+		while len(pktlist) == window_size:			
+			checkfortimeout()
 		sendtoserver(msg)
-		lock.release()		
 	
-	# TO check whether after sending last packet, are there any more packets which have not been acknowledged yet
-	while len(pktlist) != 0:
-		pass
+	while acked != transmitted:
+		checkfortimeout()
+
+def checkfortimeout():
+	global pktlist
+	global timeout
+	global acked
+	global window_size
+	global s, host, port
+	global lock
+	#print("pktlist: %s" %len(pktlist))
+	lock.acquire()
+	if len(pktlist)!= 0 and ((time.time() - pktlist[0].time) > timeout):
+		lock.release()
+		#print("Timeout, sequence number = %s" %(pktlist[0].seq_no))
+		print("Timeout, sequence number = %s" %(pktlist[0].seq_no))
+		s.sendto(bytes(pktlist[0].segment,'UTF-8'), (host,port))
+		pktlist[0].time = time.time()
+		lock.acquire()
+		#print("Pktlist: %s %s" %(len(pktlist), pktlist))
+		for i in range(1,len(pktlist)):
+			#print("Starts I: %s" %i)
+			if pktlist[i].time < timeout:
+				pass #break
+			else:
+				print("Timeout, sequence number = %s" %(pktlist[i].seq_no))
+				s.sendto(bytes(pktlist[i].segment,'UTF-8'), (host,port))
+				pktlist[i].time = time.time()
+			#print("Ends I: %s" %i)
+		lock.release()
+	if lock.locked():
+		lock.release()
 
 def sendtoserver(msg):
 	global s
@@ -178,8 +192,6 @@ def sendtoserver(msg):
 	global transmitted
 	global host
 	global port
-	global pktdict
-	global lock
 	
 	segment = ""
 	transmitted += 1
@@ -192,12 +204,12 @@ def sendtoserver(msg):
 	segment += msg
 	
 	s.sendto(bytes(segment, 'UTF-8'), (host,port))
-	#lock.acquire()
-	pktlist.append(transmitted) # transmitted here is the seq_no
-	#lock.release()
-	p = PktSentHandler(s, time.time(), transmitted, segment) # transmitted here is the seq_no
-	p.start()
-	#buffer[transmitted % window_size] = p
+	
+	p = PktSentHandler(time.time(), transmitted, segment) # transmitted here is the seq_no
+	pktlist.append(p)
+	#print("Packet added. Length of pktlist = %s" %len(pktlist))
+	#segmentdict[transmitted] = segment
+	#p.start()
 	#p.join()
 	#p.exit()
 
