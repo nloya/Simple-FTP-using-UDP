@@ -13,6 +13,7 @@ transmitted = -1
 acked = -1
 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 timeout = 0.3
+lock = threading.Lock() 
 
 # REFERENCE: http://codewiki.wikispaces.com/ip_checksum.py
 def calculate_checksum(data):  # Form the standard IP-suite checksum
@@ -44,9 +45,10 @@ class myThread(threading.Thread):
 		global transmitted
 		global acked
 		global s
+		global lock
 		#h = socket.gethostbyname(socket.gethostname())
 		#s.bind((h, 50001))
-		lock = threading.Lock()
+		
 		while True:
 			data,addr = self.sock.recvfrom(64)
 			lock.acquire()
@@ -120,7 +122,8 @@ def rdt_send(f):
 	global s
 	global host
 	global port
-	lock = threading.Lock() 
+	global lock
+	
 	msg = ""
 	flag = True
 	c = f.read(1)
@@ -129,14 +132,15 @@ def rdt_send(f):
 		if(len(msg)==mss):
 			while transmitted - acked == window_size:
 				#pass # loop till window_size is full
-				#lock.acquire()
+				lock.acquire()
 				if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:
-					print("Timeout, sequence number = %s" %(buffer[(acked+1)%window_size].seq_no))					
+					#print("Timeout, sequence number = %s" %(buffer[(acked+1)%window_size].seq_no))					
 					tmpacked = acked # So that even if the other thread changes no effect happens in this case
 					for i in range(0,window_size):						
+						print("Timeout, sequence number = %s" %(buffer[(tmpacked+1+i)%window_size].seq_no))					
 						s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
 						buffer[(tmpacked+1+i)%window_size].datetimesent = time.time()				
-				#lock.release()
+				lock.release()
 			sendtoserver(msg)
 			if flag:
 				flag = False
@@ -148,18 +152,22 @@ def rdt_send(f):
 	if(len(msg)!=0): # if the file is read completely and the last chunk of msg is not sent as it is not 1024 then send that last chunk of msg
 		while transmitted - acked == window_size:			
 			if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:				
-				print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+				#print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+				lock.acquire()
 				tmpacked = acked # So that even if the other thread changes no effect happens in this case
 				for i in range(0,window_size):					
+					print("Timeout, sequence number = %s" %(buffer[(tmpacked+1+i)%window_size].seq_no))					
 					s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
 					buffer[(tmpacked+1+i)%window_size].datetimesent = time.time()
+				lock.release()
 		sendtoserver(msg)
 	
 	while acked != transmitted:
 		if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:
-			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+			#print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
 			tmpacked = acked # So that even if the other thread changes no effect happens in this case
 			for i in range(0,window_size):			
+				print("Timeout, sequence number = %s" %(buffer[(tmpacked+1+i)%window_size].seq_no))					
 				s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
 				buffer[(tmpacked+1+i)%window_size].datetimesent = time.time()
 
