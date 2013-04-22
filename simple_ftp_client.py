@@ -53,22 +53,27 @@ class myThread(threading.Thread):
 		#lock = threading.Lock()
 		while True:
 			data,addr = self.sock.recvfrom(64)
-			lock.acquire()
-			seq_no = int(data[0:32], 2)			
-			hdr = data[32:48]
-			ackpkt = data[48:64]	
-			'''
-			if ackpt != "1010101010101010":
-				print("Error in the acknowledge packet")
-			'''
-			acked = seq_no # update the acked field
-			
-			for i in range(0, len(pktlist)):
-				if pktlist[i].seq_no == seq_no:
-					pktlist.remove(pktlist[i])
-					break
-			
-			lock.release()
+			data = data.decode('UTF-8')
+			if data[0:3] == "END":
+				self.sock.close()		
+				break
+			else:
+				seq_no = int(data[0:32], 2)			
+				hdr = data[32:48]
+				ackpkt = data[48:64]	
+				'''
+				if ackpt != "1010101010101010":
+					print("Error in the acknowledge packet")
+				'''
+				lock.acquire()
+				acked = seq_no # update the acked field
+				
+				for i in range(0, len(pktlist)):
+					if pktlist[i].seq_no == seq_no:
+						pktlist.remove(pktlist[i])
+						break
+				
+				lock.release()
 
 class PktSentHandler():
 	def __init__(self, time, seq_no, segment):
@@ -116,6 +121,7 @@ def main():
 		
 		while threading.active_count() != 2:
 			pass
+		s.sendto(bytes("END", 'UTF-8'), (host,port))
 		print("End of Program %s" %port)
 		end_time = time.time()
 		print("Delay: %s seconds" %(end_time-start_time))
@@ -166,11 +172,12 @@ def checkfortimeout():
 	#print("pktlist: %s" %len(pktlist))
 	lock.acquire()
 	if len(pktlist)!= 0 and ((time.time() - pktlist[0].time) > timeout):
-		lock.release()
+		
 		#print("Timeout, sequence number = %s" %(pktlist[0].seq_no))
 		print("Timeout, sequence number = %s" %(pktlist[0].seq_no))
 		s.sendto(bytes(pktlist[0].segment,'UTF-8'), (host,port))
 		pktlist[0].time = time.time()
+		lock.release()
 		lock.acquire()
 		#print("Pktlist: %s %s" %(len(pktlist), pktlist))
 		for i in range(1,len(pktlist)):
