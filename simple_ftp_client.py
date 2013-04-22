@@ -1,6 +1,7 @@
 """
 Go-BACK-N
 Simple_ftp_client server-host-name server-port# file-name N MSS 
+simple_ftp_client.py 152.14.245.180 7737 test_input.txt 1 500
 """
 
 import sys
