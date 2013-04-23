@@ -166,7 +166,7 @@ def rdt_send(f):
 		#print("%s %s %s" %(transmitted,acked,window_size))
 		lock.acquire()
 		if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:			
-			#print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
 			#tmpacked = acked # So that even if the other thread changes no effect happens in this case
 			for i in range(0,transmitted-acked):			
 				print("Timeout, sequence number = %s" %(buffer[(acked+1+i)%window_size].seq_no))
