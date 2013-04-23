@@ -69,23 +69,6 @@ class PktSentHandler():
 		self.datetimesent = datetimesent
 		self.seq_no = seq_no
 		self.segment = segment
-	"""
-	def run(self):
-		print("YOU CANT BE HERE")
-		global host
-		global port
-		global timeout
-		while True:
-			''' 5 being the timeout value. Wait for timeout and resend'''
-			while (time.time() - self.datetimesent) < timeout and acked < self.seq_no:
-				pass # loop	till timeout occurs or packet is acknowledged		
-			if acked < self.seq_no: # this means that the while loop was broken because timeout occured, resend packet
-				print("Timeout1, sequence number = %s" %self.seq_no)
-				self.sock.sendto(bytes(self.segment, 'UTF-8'), (host,port))
-				self.datetimesent = time.time()
-			else: # that means packet was acknowledged
-				break
-	"""
 			
 def main():
 	
@@ -130,11 +113,10 @@ def rdt_send(f):
 	while c != '': # EOF
 		msg += c
 		if(len(msg)==mss):
-			while transmitted - acked == window_size:
-				#pass # loop till window_size is full
+			while transmitted - acked == window_size:				
 				lock.acquire()
 				if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:
-					#print("Timeout, sequence number = %s" %(buffer[(acked+1)%window_size].seq_no))					
+									
 					tmpacked = acked # So that even if the other thread changes no effect happens in this case
 					for i in range(0,window_size):						
 						print("Timeout, sequence number = %s" %(buffer[(tmpacked+1+i)%window_size].seq_no))
@@ -160,19 +142,19 @@ def rdt_send(f):
 					buffer[(tmpacked+1+i)%window_size].datetimesent = time.time()
 				lock.release()
 		sendtoserver(msg)
-	
-	while acked != transmitted:
-		#time.sleep(2)
-		#print("%s %s %s" %(transmitted,acked,window_size))
-		lock.acquire()
-		if (time.time() - buffer[(acked+1)%window_size].datetimesent) > timeout:			
-			print("Timeout, sequence number = %s" %buffer[(acked+1)%window_size].seq_no)
+	#lock.acquire()
+	tmpacked = acked
+	while tmpacked != transmitted:		
+		if (time.time() - buffer[(tmpacked+1)%window_size].datetimesent) > timeout:
+			#tmpacked = acked
+			#lock.release()
+			#print("Timeout, sequence number = %s" %buffer[(tmpacked+1)%window_size].seq_no)
 			#tmpacked = acked # So that even if the other thread changes no effect happens in this case
-			for i in range(0,transmitted-acked):			
-				print("Timeout, sequence number = %s" %(buffer[(acked+1+i)%window_size].seq_no))
-				s.sendto(bytes(buffer[(acked+1+i)%window_size].segment,'UTF-8'), (host,port))
-				buffer[(acked+1+i)%window_size].datetimesent = time.time()
-		lock.release()
+			for i in range(0,transmitted-tmpacked):			
+				print("Timeout, sequence number = %s" %(buffer[(tmpacked+1+i)%window_size].seq_no))
+				s.sendto(bytes(buffer[(tmpacked+1+i)%window_size].segment,'UTF-8'), (host,port))
+				buffer[(tmpacked+1+i)%window_size].datetimesent = time.time()		
+		tmpacked = acked	
 
 def sendtoserver(msg):
 	global s
